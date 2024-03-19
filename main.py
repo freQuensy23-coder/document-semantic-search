@@ -13,7 +13,7 @@ prev_files = None
 retriever = None
 
 
-def handle_files_and_query(query, files):
+def handle_files_and_query(query, files, chunk_overlap=50, token_per_chunk=256, bm_25_answers=200):
     results = ""
     global prev_files, retriever
     files = [f.name for f in files]
@@ -22,8 +22,11 @@ def handle_files_and_query(query, files):
         prev_files = files
         for file in files:
             documents.extend(
-                PyMuPDFLoader(file).load_and_split(SentenceTransformersTokenTextSplitter(model_name=model)))
-        retriever = BM25Retriever.from_documents(documents, k=100)
+                PyMuPDFLoader(file).
+                load_and_split(SentenceTransformersTokenTextSplitter(model_name=model,
+                                                                     chunk_overlap=chunk_overlap,
+                                                                     tokens_per_chunk=token_per_chunk)))
+        retriever = BM25Retriever.from_documents(documents, k=bm_25_answers)
         results += "Index created successfully!\n"
         print("Index created successfully!")
     elif files is None:
@@ -49,10 +52,14 @@ interface = gr.Interface(
     fn=handle_files_and_query,
     inputs=[
         gr.Textbox(lines=1, label="Enter your search query here..."),
-        gr.File(file_count="multiple", type="file", file_types=[".pdf"], label="Upload a file here.")
+        gr.File(file_count="multiple", type="file", file_types=[".pdf"], label="Upload a file here."),
+        gr.Slider(minimum=1, maximum=100, value=50, label="Chunk Overlap"),
+        gr.Slider(minimum=64, maximum=512, value=256, label="Tokens Per Chunk (чем больше - тем бОльшие куски книги "
+                                                            "сможем находить)"),
+        gr.Slider(minimum=1, maximum=1000, value=200, label="BM25 Answers (чем больше - тем больше будем учитывать неявные смысловые сравнения слов)")
     ],
     outputs="text",
-    title="Similarity Search for PDFs"
+    title="Similarity Search for eksmo books"
 )
 
 interface.launch()
