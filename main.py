@@ -12,14 +12,17 @@ embeddings = SentenceTransformerEmbeddings(model_name=model)
 prev_files = None
 retriever = None
 
+
 def handle_files_and_query(query, files):
     results = ""
     global prev_files, retriever
+    files = [f.name for f in files]
     if files is not None and files != prev_files:
         documents = []
         prev_files = files
         for file in files:
-            documents.extend(PyMuPDFLoader(file).load_and_split(SentenceTransformersTokenTextSplitter(model_name=model)))
+            documents.extend(
+                PyMuPDFLoader(file).load_and_split(SentenceTransformersTokenTextSplitter(model_name=model)))
         retriever = BM25Retriever.from_documents(documents, k=100)
         results += "Index created successfully!\n"
         print("Index created successfully!")
@@ -31,19 +34,22 @@ def handle_files_and_query(query, files):
     print(f"Query: {query}")
     if query:
         search_results = retriever.get_relevant_documents(query)
-        pattern = r'[^\\/]+$' # pattern to get filename from filepath
-        reranked_results = FAISS.from_documents(search_results, embeddings, distance_strategy=DistanceStrategy.COSINE).similarity_search(query, k=25)
+        pattern = r'[^\\/]+$'  # pattern to get filename from filepath
+        reranked_results = FAISS.from_documents(search_results, embeddings,
+                                                distance_strategy=DistanceStrategy.COSINE).similarity_search(query,
+                                                                                                             k=25)
         results = "\n".join([
             f"Source: {re.search(pattern, result.metadata['file_path']).group(0)}\nPage: {result.metadata['page']}\nContent:\n{result.page_content}\n"
             for result in reranked_results
         ])
     return results
 
+
 interface = gr.Interface(
     fn=handle_files_and_query,
     inputs=[
-        gr.Textbox(lines = 1, label="Enter your search query here..."),
-        gr.File(file_count="multiple", type="filepath", file_types=[".pdf"], label="Upload a file here.")
+        gr.Textbox(lines=1, label="Enter your search query here..."),
+        gr.File(file_count="multiple", type="file", file_types=[".pdf"], label="Upload a file here.")
     ],
     outputs="text",
     title="Similarity Search for PDFs"
